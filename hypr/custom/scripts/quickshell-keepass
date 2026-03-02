@@ -1,0 +1,266 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VAULT_PATH="${KP_VAULT_PATH:-$HOME/Nextcloud/secrets/end4dot-keepass.kdbx}"
+CACHE_TTL="${KP_CACHE_TTL:-300}"
+NONINTERACTIVE="${KP_NONINTERACTIVE:-0}"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+CACHE_FILE="$RUNTIME_DIR/quickshell-keepass.pass"
+STAMP_FILE="$RUNTIME_DIR/quickshell-keepass.stamp"
+
+die() {
+  echo "quickshell-keepass: $*" >&2
+  exit 1
+}
+
+now_epoch() {
+  date +%s
+}
+
+cache_valid() {
+  [[ -f "$CACHE_FILE" && -f "$STAMP_FILE" ]] || return 1
+  local now ts
+  now="$(now_epoch)"
+  ts="$(cat "$STAMP_FILE" 2>/dev/null || echo 0)"
+  [[ "$ts" =~ ^[0-9]+$ ]] || return 1
+  (( now - ts < CACHE_TTL ))
+}
+
+write_cache() {
+  local password="$1"
+  umask 077
+  printf '%s' "$password" > "$CACHE_FILE"
+  printf '%s' "$(now_epoch)" > "$STAMP_FILE"
+}
+
+touch_cache() {
+  [[ -f "$STAMP_FILE" ]] || return 0
+  printf '%s' "$(now_epoch)" > "$STAMP_FILE"
+}
+
+read_password() {
+  local password=""
+  if cache_valid; then
+    password="$(cat "$CACHE_FILE")"
+    touch_cache
+    printf '%s' "$password"
+    return 0
+  fi
+  if [[ -n "${KP_PASSWORD:-}" ]]; then
+    write_cache "$KP_PASSWORD"
+    printf '%s' "$KP_PASSWORD"
+    return 0
+  fi
+  if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
+    die "locked (no cached password)"
+  fi
+  read -r -s -p "Vault password: " password
+  echo >&2
+  [[ -n "$password" ]] || die "empty password"
+  write_cache "$password"
+  printf '%s' "$password"
+}
+
+require_vault() {
+  [[ -f "$VAULT_PATH" ]] || die "vault not found: $VAULT_PATH (run: quickshell-keepass init)"
+}
+
+cmd_init() {
+  [[ -f "$VAULT_PATH" ]] && die "vault already exists: $VAULT_PATH"
+  mkdir -p "$(dirname "$VAULT_PATH")"
+  local password
+  read -r -s -p "New vault password: " password
+  echo >&2
+  [[ -n "$password" ]] || die "empty password"
+  printf '%s\n%s\n' "$password" "$password" | keepassxc-cli db-create -q -p "$VAULT_PATH"
+  write_cache "$password"
+  echo "Created vault: $VAULT_PATH"
+}
+
+cmd_lock() {
+  rm -f "$CACHE_FILE" "$STAMP_FILE"
+  echo "Locked (cache cleared)."
+}
+
+cmd_unlock() {
+  local password="${KP_PASSWORD:-}"
+  if [[ -z "$password" ]]; then
+    if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
+      # Read from stdin in non-interactive contexts
+      if ! read -r password; then
+        die "missing password"
+      fi
+    else
+      read -r -s -p "Vault password: " password
+      echo >&2
+    fi
+  fi
+  [[ -n "$password" ]] || die "empty password"
+  if printf '%s\n' "$password" | keepassxc-cli ls -q -R -f "$VAULT_PATH" >/dev/null 2>&1; then
+    write_cache "$password"
+    echo "Unlocked (cache set)."
+  else
+    die "invalid password"
+  fi
+}
+
+cmd_status() {
+  if cache_valid; then
+    echo "unlocked (cache valid for ${CACHE_TTL}s)"
+  else
+    echo "locked"
+  fi
+}
+
+kp() {
+  local password cmd
+  password="$(read_password)"
+  cmd="${1:-}"
+  shift || true
+  printf '%s\n' "$password" | keepassxc-cli "$cmd" -q "$VAULT_PATH" "$@"
+}
+
+cmd_open() {
+  require_vault
+  kp open
+}
+
+cmd_search() {
+  require_vault
+  [[ $# -ge 1 ]] || die "usage: search <query>"
+  kp search "$@"
+}
+
+cmd_ls() {
+  require_vault
+  kp ls "$@"
+}
+
+cmd_show() {
+  require_vault
+  [[ $# -ge 1 ]] || die "usage: show <entry> [attributes...]"
+  kp show "$@"
+}
+
+cmd_get() {
+  require_vault
+  [[ $# -ge 2 ]] || die "usage: get <entry> <attribute>"
+  kp show -s -a "$2" "$1"
+}
+
+cmd_clip() {
+  require_vault
+  [[ $# -ge 2 ]] || die "usage: clip <entry> <attribute>"
+  kp clip -a "$2" "$1"
+}
+
+cmd_copy_private() {
+  require_vault
+  [[ $# -ge 2 ]] || die "usage: copy-private <entry> <attribute>"
+  local entry="$1"
+  local attr="$2"
+  local value
+  value="$(kp show -s -a "$attr" "$entry" | sed -n '1p')"
+  [[ -n "$value" ]] || die "empty value"
+  if command -v wl-copy >/dev/null 2>&1; then
+    printf '%s' "$value" | wl-copy --type text
+  elif command -v xclip >/dev/null 2>&1; then
+    printf '%s' "$value" | xclip -selection clipboard
+  else
+    die "no clipboard tool (wl-copy/xclip)"
+  fi
+  # Remove the last cliphist entry to keep clipboard private
+  if command -v cliphist >/dev/null 2>&1; then
+    sleep 0.1
+    local last
+    last="$(cliphist list | head -n 1)"
+    if [[ -n "$last" ]]; then
+      printf '%s' "$last" | cliphist delete >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+cmd_add() {
+  require_vault
+  [[ $# -ge 1 ]] || die "usage: add <entry> [username] [url]"
+  local entry="$1"
+  local username="${2:-}"
+  local url="${3:-}"
+  local entry_password="${KP_ENTRY_PASSWORD:-}"
+
+  if [[ -z "$entry_password" ]]; then
+    if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
+      if ! read -r entry_password; then
+        die "missing entry password"
+      fi
+    else
+      read -r -s -p "Entry password: " entry_password
+      echo >&2
+    fi
+  fi
+  [[ -n "$entry_password" ]] || die "empty entry password"
+
+  local db_password
+  db_password="$(read_password)"
+
+  local group="${entry%/*}"
+  if [[ "$group" != "$entry" && -n "$group" && "$group" != "/" ]]; then
+    printf '%s\n' "$db_password" | keepassxc-cli mkdir -q "$VAULT_PATH" "$group" >/dev/null 2>&1 || true
+  fi
+
+  local args=("add" "-q")
+  [[ -n "$username" ]] && args+=("-u" "$username")
+  [[ -n "$url" ]] && args+=("--url" "$url")
+  args+=("--password-prompt" "$VAULT_PATH" "$entry")
+
+  printf '%s\n%s\n' "$db_password" "$entry_password" | keepassxc-cli "${args[@]}"
+}
+
+cmd_help() {
+  cat <<'EOF'
+quickshell-keepass
+
+Usage:
+  quickshell-keepass init
+  quickshell-keepass status
+  quickshell-keepass lock
+  quickshell-keepass open
+  quickshell-keepass search <query>
+  quickshell-keepass ls [group]
+  quickshell-keepass show <entry> [attributes...]
+  quickshell-keepass get <entry> <attribute>
+  quickshell-keepass clip <entry> <attribute>
+  quickshell-keepass copy-private <entry> <attribute>
+  quickshell-keepass add <entry> [username] [url]
+
+Env:
+  KP_VAULT_PATH  Vault path (default: ~/secret/end4dot-keepass.kdbx)
+  KP_CACHE_TTL   Cache TTL in seconds (default: 300)
+  KP_PASSWORD    Provide vault password non-interactively
+  KP_ENTRY_PASSWORD Provide entry password for add
+  KP_NONINTERACTIVE 1 to disable prompts
+EOF
+}
+
+main() {
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    init) cmd_init "$@" ;;
+    status) cmd_status ;;
+    lock) cmd_lock ;;
+    unlock) cmd_unlock ;;
+    open) cmd_open ;;
+    search) cmd_search "$@" ;;
+    ls) cmd_ls "$@" ;;
+    show) cmd_show "$@" ;;
+    get) cmd_get "$@" ;;
+    clip) cmd_clip "$@" ;;
+    copy-private) cmd_copy_private "$@" ;;
+    add) cmd_add "$@" ;;
+    help|-h|--help) cmd_help ;;
+    *) die "unknown command: $cmd" ;;
+  esac
+}
+
+main "$@"

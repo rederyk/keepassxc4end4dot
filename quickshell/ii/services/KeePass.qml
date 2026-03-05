@@ -142,13 +142,14 @@ Singleton {
         })
     }
 
-    function generate(length, useUpper, useNumbers, useSymbols) {
+    function generate(length, useUpper, useNumbers, useSymbols, useWords) {
         genProc.exec({
             environment: {
                 KP_GEN_LENGTH:  length.toString(),
                 KP_GEN_UPPER:   useUpper   ? "1" : "0",
                 KP_GEN_NUMBERS: useNumbers ? "1" : "0",
-                KP_GEN_SYMBOLS: useSymbols ? "1" : "0"
+                KP_GEN_SYMBOLS: useSymbols ? "1" : "0",
+                KP_GEN_WORDS:   useWords   ? "1" : "0"
             },
             command: [scriptPath, "generate"]
         })

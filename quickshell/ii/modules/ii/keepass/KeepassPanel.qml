@@ -373,6 +373,7 @@ Scope {
                         property bool genUppercase: true
                         property bool genNumbers: true
                         property bool genSymbols: true
+                        property bool genWords: false
 
                         function clearForm() {
                             addEntryName.text = ""
@@ -430,7 +431,7 @@ Scope {
 
                             DialogButton {
                                 buttonText: Translation.tr("Generate")
-                                onClicked: KeePass.generate(addPanel.genLength, addPanel.genUppercase, addPanel.genNumbers, addPanel.genSymbols)
+                                onClicked: KeePass.generate(addPanel.genLength, addPanel.genUppercase, addPanel.genNumbers, addPanel.genSymbols, addPanel.genWords)
                             }
                         }
 
@@ -470,6 +471,13 @@ Scope {
                                 toggled: addPanel.genSymbols
                                 colEnabled: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
                                 onClicked: addPanel.genSymbols = !addPanel.genSymbols
+                            }
+                            Item { implicitWidth: 8 }
+                            DialogButton {
+                                buttonText: Translation.tr("par")
+                                toggled: addPanel.genWords
+                                colEnabled: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
+                                onClicked: addPanel.genWords = !addPanel.genWords
                             }
                         }
 

@@ -18,6 +18,7 @@ Singleton {
     property bool unlocked: false
     property bool busy: false
     property string lastError: ""
+    property string pendingPassword: ""
 
     property string password: ""
     property list<string> entries: []
@@ -52,12 +53,22 @@ Singleton {
         open = true
         addMode = true
         resetSensitive()
+        refreshEntries()
     }
 
     function close() {
         open = false
         addMode = false
+        pendingPassword = ""
         resetSensitive()
+    }
+
+    function openAddWithSelection() {
+        if (open && addMode) {
+            close()
+            return
+        }
+        selectionProc.exec(["wl-paste", "--primary"])
     }
 
     function lock() {
@@ -277,6 +288,24 @@ Singleton {
             } else {
                 lastError = Translation.tr("Failed to add entry")
             }
+        }
+    }
+
+    Process {
+        id: selectionProc
+        stdout: StdioCollector {
+            id: selectionCollector
+            onStreamFinished: {
+                const sel = selectionCollector.text.replace(/\n+$/, "").trim()
+                root.pendingPassword = sel
+            }
+        }
+        onExited: (exitCode, exitStatus) => {
+            if (exitCode !== 0) root.pendingPassword = ""
+            root.open = true
+            root.addMode = true
+            root.resetSensitive()
+            root.refreshEntries()
         }
     }
 }

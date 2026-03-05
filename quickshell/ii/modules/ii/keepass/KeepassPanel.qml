@@ -85,8 +85,22 @@ Scope {
                     Connections {
                         target: KeePass
                         function onOpenChanged() { column.focusDefault(); }
-                        function onUnlockedChanged() { column.focusDefault(); }
-                        function onAddModeChanged() { column.focusDefault(); }
+                        function onUnlockedChanged() {
+                            column.focusDefault()
+                            if (KeePass.unlocked && KeePass.addMode && KeePass.pendingPassword.length > 0) {
+                                addPassword.text = KeePass.pendingPassword
+                                KeePass.pendingPassword = ""
+                                addPanel.addPasswordVisible = true
+                            }
+                        }
+                        function onAddModeChanged() {
+                            column.focusDefault()
+                            if (KeePass.addMode && KeePass.unlocked && KeePass.pendingPassword.length > 0) {
+                                addPassword.text = KeePass.pendingPassword
+                                KeePass.pendingPassword = ""
+                                addPanel.addPasswordVisible = true
+                            }
+                        }
                     }
 
                     Keys.onPressed: event => {
@@ -97,10 +111,7 @@ Scope {
                                 event.accepted = true
                             } else if (KeePass.addMode) {
                                 KeePass.addEntry(addEntryName.text, addPassword.text, addUsername.text, addUrl.text)
-                                addEntryName.text = ""
-                                addUsername.text = ""
-                                addUrl.text = ""
-                                addPassword.text = ""
+                                addPanel.clearForm()
                                 event.accepted = true
                             } else if (KeePass.selectedEntry.length > 0) {
                                 KeePass.copyPassword()
@@ -346,8 +357,35 @@ Scope {
 
                     // Add panel
                     ColumnLayout {
+                        id: addPanel
                         visible: KeePass.unlocked && KeePass.addMode
                         spacing: 8
+
+                        property bool addPasswordVisible: false
+                        property int genLength: 20
+                        property bool genUppercase: true
+                        property bool genNumbers: true
+                        property bool genSymbols: true
+
+                        function generatePassword() {
+                            let chars = 'abcdefghijklmnopqrstuvwxyz'
+                            if (genUppercase) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                            if (genNumbers)  chars += '0123456789'
+                            if (genSymbols)  chars += '!@#$%^&*()-_=+[]{}|;:,.?'
+                            let result = ''
+                            for (let i = 0; i < genLength; i++)
+                                result += chars[Math.floor(Math.random() * chars.length)]
+                            return result
+                        }
+
+                        function clearForm() {
+                            addEntryName.text = ""
+                            addUsername.text = ""
+                            addUrl.text = ""
+                            addPassword.text = ""
+                            addPasswordVisible = false
+                        }
+
                         ToolbarTextField {
                             id: addEntryName
                             Layout.fillWidth: true
@@ -363,29 +401,92 @@ Scope {
                             Layout.fillWidth: true
                             placeholderText: Translation.tr("URL (optional)")
                         }
-                        ToolbarTextField {
-                            id: addPassword
+
+                        RowLayout {
                             Layout.fillWidth: true
-                            placeholderText: Translation.tr("Password")
-                            echoMode: TextInput.Password
-                            onAccepted: {
-                                KeePass.addEntry(addEntryName.text, addPassword.text, addUsername.text, addUrl.text)
-                                addEntryName.text = ""
-                                addUsername.text = ""
-                                addUrl.text = ""
-                                addPassword.text = ""
+                            spacing: 4
+
+                            ToolbarTextField {
+                                id: addPassword
+                                Layout.fillWidth: true
+                                placeholderText: Translation.tr("Password")
+                                echoMode: addPanel.addPasswordVisible ? TextInput.Normal : TextInput.Password
+                                onAccepted: {
+                                    KeePass.addEntry(addEntryName.text, addPassword.text, addUsername.text, addUrl.text)
+                                    addPanel.clearForm()
+                                }
+                            }
+
+                            RippleButton {
+                                implicitWidth: 34
+                                implicitHeight: 34
+                                buttonRadius: Appearance.rounding.full
+                                colBackground: "transparent"
+                                onClicked: addPanel.addPasswordVisible = !addPanel.addPasswordVisible
+                                contentItem: MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: addPanel.addPasswordVisible ? "visibility_off" : "visibility"
+                                    iconSize: Appearance.font.pixelSize.larger
+                                    color: Appearance.colors.colOnLayer1
+                                }
+                            }
+
+                            DialogButton {
+                                buttonText: Translation.tr("Generate")
+                                onClicked: {
+                                    addPassword.text = addPanel.generatePassword()
+                                    addPanel.addPasswordVisible = true
+                                }
                             }
                         }
+
+                        // Generator options
+                        RowLayout {
+                            spacing: 4
+                            StyledText {
+                                text: Translation.tr("Len:")
+                                font.pixelSize: Appearance.font.pixelSize.small
+                                color: Appearance.colors.colOnSurfaceVariant
+                            }
+                            Repeater {
+                                model: [8, 12, 20]
+                                delegate: DialogButton {
+                                    required property int modelData
+                                    buttonText: modelData.toString()
+                                    toggled: addPanel.genLength === modelData
+                                    colEnabled: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
+                                    onClicked: addPanel.genLength = modelData
+                                }
+                            }
+                            Item { implicitWidth: 8 }
+                            DialogButton {
+                                buttonText: "A-Z"
+                                toggled: addPanel.genUppercase
+                                colEnabled: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
+                                onClicked: addPanel.genUppercase = !addPanel.genUppercase
+                            }
+                            DialogButton {
+                                buttonText: "0-9"
+                                toggled: addPanel.genNumbers
+                                colEnabled: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
+                                onClicked: addPanel.genNumbers = !addPanel.genNumbers
+                            }
+                            DialogButton {
+                                buttonText: "!@#"
+                                toggled: addPanel.genSymbols
+                                colEnabled: toggled ? Appearance.colors.colOnPrimary : Appearance.colors.colPrimary
+                                onClicked: addPanel.genSymbols = !addPanel.genSymbols
+                            }
+                        }
+
                         RowLayout {
                             spacing: 8
                             DialogButton {
                                 buttonText: Translation.tr("Save")
                                 onClicked: {
                                     KeePass.addEntry(addEntryName.text, addPassword.text, addUsername.text, addUrl.text)
-                                    addEntryName.text = ""
-                                    addUsername.text = ""
-                                    addUrl.text = ""
-                                    addPassword.text = ""
+                                    addPanel.clearForm()
                                 }
                             }
                             DialogButton {
@@ -411,11 +512,7 @@ Scope {
         }
 
         function add(): void {
-            if (KeePass.open && KeePass.addMode) {
-                KeePass.close()
-            } else {
-                KeePass.openAdd()
-            }
+            KeePass.openAddWithSelection()
         }
     }
 
@@ -433,13 +530,9 @@ Scope {
 
     GlobalShortcut {
         name: "keepassAdd"
-        description: "Toggle KeePass add panel"
+        description: "Toggle KeePass add panel (pre-fill with primary selection)"
         onPressed: {
-            if (KeePass.open && KeePass.addMode) {
-                KeePass.close()
-            } else {
-                KeePass.openAdd()
-            }
+            KeePass.openAddWithSelection()
         }
     }
 }

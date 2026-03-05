@@ -39,24 +39,20 @@ touch_cache() {
 }
 
 read_password() {
-  local password=""
   if cache_valid; then
-    password="$(cat "$CACHE_FILE")"
+    cat "$CACHE_FILE"
     touch_cache
-    printf '%s' "$password"
     return 0
   fi
-  if [[ -n "${KP_PASSWORD:-}" ]]; then
-    write_cache "$KP_PASSWORD"
-    printf '%s' "$KP_PASSWORD"
-    return 0
-  fi
+  local password
   if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
-    die "locked (no cached password)"
+    IFS= read -r password || die "locked (no cached password)"
+    [[ -n "$password" ]] || die "locked (empty password)"
+  else
+    read -r -s -p "Vault password: " password
+    echo >&2
+    [[ -n "$password" ]] || die "empty password"
   fi
-  read -r -s -p "Vault password: " password
-  echo >&2
-  [[ -n "$password" ]] || die "empty password"
   write_cache "$password"
   printf '%s' "$password"
 }
@@ -78,22 +74,21 @@ cmd_init() {
 }
 
 cmd_lock() {
-  rm -f "$CACHE_FILE" "$STAMP_FILE"
+  if command -v shred >/dev/null 2>&1; then
+    shred -u "$CACHE_FILE" "$STAMP_FILE" 2>/dev/null || true
+  else
+    rm -f "$CACHE_FILE" "$STAMP_FILE"
+  fi
   echo "Locked (cache cleared)."
 }
 
 cmd_unlock() {
-  local password="${KP_PASSWORD:-}"
-  if [[ -z "$password" ]]; then
-    if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
-      # Read from stdin in non-interactive contexts
-      if ! read -r password; then
-        die "missing password"
-      fi
-    else
-      read -r -s -p "Vault password: " password
-      echo >&2
-    fi
+  local password
+  if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
+    IFS= read -r password || die "missing password"
+  else
+    read -r -s -p "Vault password: " password
+    echo >&2
   fi
   [[ -n "$password" ]] || die "empty password"
   if printf '%s\n' "$password" | keepassxc-cli ls -q -R -f "$VAULT_PATH" >/dev/null 2>&1; then
@@ -186,22 +181,22 @@ cmd_add() {
   local entry="$1"
   local username="${2:-}"
   local url="${3:-}"
-  local entry_password="${KP_ENTRY_PASSWORD:-}"
 
+  # db password first: from cache, or line 1 of stdin in non-interactive mode
+  local db_password
+  db_password="$(read_password)"
+
+  # entry password: line 2 of stdin (or next line if cache was used), or KP_ENTRY_PASSWORD env
+  local entry_password="${KP_ENTRY_PASSWORD:-}"
   if [[ -z "$entry_password" ]]; then
     if [[ "$NONINTERACTIVE" == "1" || ! -t 0 ]]; then
-      if ! read -r entry_password; then
-        die "missing entry password"
-      fi
+      IFS= read -r entry_password || die "missing entry password"
     else
       read -r -s -p "Entry password: " entry_password
       echo >&2
     fi
   fi
   [[ -n "$entry_password" ]] || die "empty entry password"
-
-  local db_password
-  db_password="$(read_password)"
 
   local group="${entry%/*}"
   if [[ "$group" != "$entry" && -n "$group" && "$group" != "/" ]]; then
@@ -234,11 +229,12 @@ Usage:
   quickshell-keepass add <entry> [username] [url]
 
 Env:
-  KP_VAULT_PATH  Vault path (default: ~/secret/end4dot-keepass.kdbx)
-  KP_CACHE_TTL   Cache TTL in seconds (default: 300)
-  KP_PASSWORD    Provide vault password non-interactively
-  KP_ENTRY_PASSWORD Provide entry password for add
-  KP_NONINTERACTIVE 1 to disable prompts
+  KP_VAULT_PATH     Vault path (default: ~/Nextcloud/secrets/end4dot-keepass.kdbx)
+  KP_CACHE_TTL      Cache TTL in seconds (default: 300)
+  KP_ENTRY_PASSWORD Provide entry password for 'add' non-interactively
+  KP_NONINTERACTIVE Set to 1 to disable prompts (password read from stdin)
+
+Note: vault password is always read from stdin when non-interactive.
 EOF
 }
 

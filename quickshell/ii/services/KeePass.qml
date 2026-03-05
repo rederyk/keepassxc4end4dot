@@ -79,16 +79,12 @@ Singleton {
         resetSensitive()
     }
 
-    function envFor(passwordValue) {
-        const env = {
+    function envFor() {
+        return {
             KP_VAULT_PATH: root.vaultPath,
             KP_NONINTERACTIVE: "1",
             KP_CACHE_TTL: root.cacheTtl.toString()
         }
-        // Only set KP_PASSWORD if non-empty — when empty the script reads from cache
-        if (passwordValue && passwordValue.length > 0)
-            env.KP_PASSWORD = passwordValue
-        return env
     }
 
     function unlock(passwordValue) {
@@ -104,7 +100,7 @@ Singleton {
         busy = true
         listProc.buffer = []
         listProc.exec({
-            environment: envFor(password),
+            environment: envFor(),
             command: [scriptPath, "ls", "-R", "-f"]
         })
     }
@@ -124,7 +120,7 @@ Singleton {
     function showPassword() {
         if (!selectedEntry) return
         getProc.exec({
-            environment: envFor(password),
+            environment: envFor(),
             command: [scriptPath, "get", selectedEntry, "password"]
         })
     }
@@ -132,7 +128,7 @@ Singleton {
     function copyPassword() {
         if (!selectedEntry) return
         copyGetProc.exec({
-            environment: envFor(password),
+            environment: envFor(),
             command: [scriptPath, "get", selectedEntry, "password"]
         })
     }
@@ -140,7 +136,7 @@ Singleton {
     function copyUsername() {
         if (!selectedEntry) return
         copyUsernameProc.exec({
-            environment: envFor(password),
+            environment: envFor(),
             command: [scriptPath, "get", selectedEntry, "username"]
         })
     }
@@ -152,7 +148,7 @@ Singleton {
         }
         addProc.entryPassword = entryPassword
         addProc.exec({
-            environment: envFor(password),
+            environment: envFor(),
             command: [scriptPath, "add", entry, username, url]
         })
     }
@@ -171,6 +167,13 @@ Singleton {
     Process {
         id: listProc
         property list<string> buffer: []
+        onRunningChanged: {
+            if (listProc.running && root.password.length > 0) {
+                listProc.stdinEnabled = true
+                listProc.write(`${root.password}\n`)
+                listProc.stdinEnabled = false
+            }
+        }
         stdout: SplitParser {
             onRead: (line) => {
                 if (line && line.trim().length > 0)
@@ -196,6 +199,13 @@ Singleton {
 
     Process {
         id: getProc
+        onRunningChanged: {
+            if (getProc.running && root.password.length > 0) {
+                getProc.stdinEnabled = true
+                getProc.write(`${root.password}\n`)
+                getProc.stdinEnabled = false
+            }
+        }
         stdout: StdioCollector {
             id: passwordCollector
             onStreamFinished: {
@@ -227,6 +237,13 @@ Singleton {
 
     Process {
         id: copyGetProc
+        onRunningChanged: {
+            if (copyGetProc.running && root.password.length > 0) {
+                copyGetProc.stdinEnabled = true
+                copyGetProc.write(`${root.password}\n`)
+                copyGetProc.stdinEnabled = false
+            }
+        }
         stdout: StdioCollector {
             id: copyCollector
             onStreamFinished: {
@@ -250,6 +267,13 @@ Singleton {
 
     Process {
         id: copyUsernameProc
+        onRunningChanged: {
+            if (copyUsernameProc.running && root.password.length > 0) {
+                copyUsernameProc.stdinEnabled = true
+                copyUsernameProc.write(`${root.password}\n`)
+                copyUsernameProc.stdinEnabled = false
+            }
+        }
         stdout: StdioCollector {
             id: copyUsernameCollector
             onStreamFinished: {
@@ -276,7 +300,11 @@ Singleton {
         onRunningChanged: {
             if (addProc.running) {
                 addProc.stdinEnabled = true
-                addProc.write(`${addProc.entryPassword}\n`)
+                // db password on line 1 (only if not cached), entry password on next line
+                const payload = root.password.length > 0
+                    ? `${root.password}\n${addProc.entryPassword}\n`
+                    : `${addProc.entryPassword}\n`
+                addProc.write(payload)
                 addProc.stdinEnabled = false
             }
         }

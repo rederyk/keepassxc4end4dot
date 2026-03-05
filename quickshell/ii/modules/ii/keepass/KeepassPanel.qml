@@ -72,26 +72,14 @@ Scope {
                     function focusDefault() {
                         if (!KeePass.open) return;
                         if (!KeePass.unlocked) {
-                            unlockPassword.forceActiveFocus();
+                            Qt.callLater(unlockPassword.forceActiveFocus);
                             return;
                         }
                         if (KeePass.addMode) {
-                            addEntryName.forceActiveFocus();
+                            Qt.callLater(addEntryName.forceActiveFocus);
                             return;
                         }
-                        focusTimer.restart();
-                    }
-
-                    Timer {
-                        id: focusTimer
-                        interval: 50
-                        repeat: false
-                        onTriggered: {
-                            if (!KeePass.open) return
-                            if (!KeePass.unlocked) { unlockPassword.forceActiveFocus(); return }
-                            if (KeePass.addMode) { addEntryName.forceActiveFocus(); return }
-                            filterField.forceActiveFocus()
-                        }
+                        Qt.callLater(filterField.forceActiveFocus);
                     }
 
                     Connections {
@@ -245,6 +233,9 @@ Scope {
                             Layout.fillWidth: true
                             placeholderText: Translation.tr("Search entries")
                             onTextChanged: KeePass.filter = text
+                            KeyNavigation.tab: entryList
+                            KeyNavigation.backtab: entryList
+                            Keys.priority: Keys.BeforeItem
                             Keys.onPressed: event => {
                                 if (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                                     entryList.forceActiveFocus()

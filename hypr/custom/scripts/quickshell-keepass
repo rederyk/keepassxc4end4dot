@@ -272,28 +272,26 @@ cmd_generate_words() {
     fi
   done
 
-  # Slot simbolo: 0..word_count (random), 0=prima di tutto, n=dopo n-esima parola
-  local sym_slot=-1
-  if [[ "${KP_GEN_SYMBOLS:-1}" == "1" ]]; then
-    local symbols='!@#$%^&*'
-    sym_slot=$(( $(_kp_rand_u8) % (word_count + 1) ))
-  fi
+  # Dopo ogni parola: casualmente un numero o un simbolo
+  local symbols='!@#$%^&*.-_'
+  local has_n="${KP_GEN_NUMBERS:-1}"
+  local has_s="${KP_GEN_SYMBOLS:-1}"
 
   local result=""
-  local sym_char=""
-  if (( sym_slot >= 0 )); then
-    local sidx=$(( $(_kp_rand_u8) % ${#symbols} ))
-    sym_char="${symbols:$sidx:1}"
-  fi
-
   for ((i=0; i<word_count; i++)); do
-    (( i == sym_slot )) && result+="$sym_char"
     result+="${styled[$i]}"
-    if [[ "${KP_GEN_NUMBERS:-1}" == "1" && $i -lt $((word_count - 1)) ]]; then
+    if [[ "$has_n" == "1" && "$has_s" == "1" ]]; then
+      if (( $(_kp_rand_u8) % 2 )); then
+        result+=$(( ($(_kp_rand_u8) % 99) + 1 ))
+      else
+        result+="${symbols:$(( $(_kp_rand_u8) % ${#symbols} )):1}"
+      fi
+    elif [[ "$has_n" == "1" ]]; then
       result+=$(( ($(_kp_rand_u8) % 99) + 1 ))
+    elif [[ "$has_s" == "1" ]]; then
+      result+="${symbols:$(( $(_kp_rand_u8) % ${#symbols} )):1}"
     fi
   done
-  (( sym_slot == word_count )) && result+="$sym_char"
 
   printf '%s\n' "$result"
 }

@@ -248,27 +248,52 @@ cmd_generate_words() {
   (( length >= 20 )) && word_count=4
 
   local pool_size=${#_KP_WORDS_IT[@]}
-  local result=""
 
-  for ((i=0; i<word_count; i++)); do
-    local idx word
-    idx=$(_kp_rand_u16)
-    word="${_KP_WORDS_IT[$((idx % pool_size))]}"
-    result+="${word^}"  # capitalize first letter
+  # Pick unique words
+  local -a chosen=()
+  local -a used=()
+  while (( ${#chosen[@]} < word_count )); do
+    local idx
+    idx=$(( $(_kp_rand_u16) % pool_size ))
+    local dup=0
+    for u in "${used[@]:-}"; do [[ "$u" == "$idx" ]] && dup=1 && break; done
+    (( dup )) && continue
+    used+=("$idx")
+    chosen+=("${_KP_WORDS_IT[$idx]}")
+  done
 
-    if [[ "${KP_GEN_NUMBERS:-1}" == "1" && $i -lt $((word_count - 1)) ]]; then
-      local n
-      n=$(_kp_rand_u8)
-      result+=$(( (n % 99) + 1 ))
+  # Ogni parola: casualmente tutta maiuscola o tutta minuscola
+  local -a styled=()
+  for word in "${chosen[@]}"; do
+    if (( $(_kp_rand_u8) % 2 )); then
+      styled+=("${word^^}")
+    else
+      styled+=("$word")
     fi
   done
 
+  # Slot simbolo: 0..word_count (random), 0=prima di tutto, n=dopo n-esima parola
+  local sym_slot=-1
   if [[ "${KP_GEN_SYMBOLS:-1}" == "1" ]]; then
     local symbols='!@#$%^&*'
-    local sidx
-    sidx=$(_kp_rand_u8)
-    result+="${symbols:$((sidx % ${#symbols})):1}"
+    sym_slot=$(( $(_kp_rand_u8) % (word_count + 1) ))
   fi
+
+  local result=""
+  local sym_char=""
+  if (( sym_slot >= 0 )); then
+    local sidx=$(( $(_kp_rand_u8) % ${#symbols} ))
+    sym_char="${symbols:$sidx:1}"
+  fi
+
+  for ((i=0; i<word_count; i++)); do
+    (( i == sym_slot )) && result+="$sym_char"
+    result+="${styled[$i]}"
+    if [[ "${KP_GEN_NUMBERS:-1}" == "1" && $i -lt $((word_count - 1)) ]]; then
+      result+=$(( ($(_kp_rand_u8) % 99) + 1 ))
+    fi
+  done
+  (( sym_slot == word_count )) && result+="$sym_char"
 
   printf '%s\n' "$result"
 }

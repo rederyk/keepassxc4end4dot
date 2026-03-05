@@ -27,6 +27,7 @@ Singleton {
     property string selectedEntry: ""
     property bool reveal: false
     property string revealedPassword: ""
+    property string generatedPassword: ""
 
     // TTL selezionabile: 300 (5 min), 1800 (30 min), 14400 (4 ore)
     property int cacheTtl: 300
@@ -138,6 +139,18 @@ Singleton {
         copyUsernameProc.exec({
             environment: envFor(),
             command: [scriptPath, "get", selectedEntry, "username"]
+        })
+    }
+
+    function generate(length, useUpper, useNumbers, useSymbols) {
+        genProc.exec({
+            environment: {
+                KP_GEN_LENGTH:  length.toString(),
+                KP_GEN_UPPER:   useUpper   ? "1" : "0",
+                KP_GEN_NUMBERS: useNumbers ? "1" : "0",
+                KP_GEN_SYMBOLS: useSymbols ? "1" : "0"
+            },
+            command: [scriptPath, "generate"]
         })
     }
 
@@ -315,6 +328,16 @@ Singleton {
                 refreshEntries()
             } else {
                 lastError = Translation.tr("Failed to add entry")
+            }
+        }
+    }
+
+    Process {
+        id: genProc
+        stdout: StdioCollector {
+            id: genCollector
+            onStreamFinished: {
+                root.generatedPassword = genCollector.text.replace(/\n+$/, "")
             }
         }
     }

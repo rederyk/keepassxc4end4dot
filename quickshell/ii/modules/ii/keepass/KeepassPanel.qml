@@ -101,6 +101,13 @@ Scope {
                                 addPanel.addPasswordVisible = true
                             }
                         }
+                        function onGeneratedPasswordChanged() {
+                            if (KeePass.generatedPassword.length > 0) {
+                                addPassword.text = KeePass.generatedPassword
+                                addPanel.addPasswordVisible = true
+                                KeePass.generatedPassword = ""
+                            }
+                        }
                     }
 
                     Keys.onPressed: event => {
@@ -367,19 +374,6 @@ Scope {
                         property bool genNumbers: true
                         property bool genSymbols: true
 
-                        function generatePassword() {
-                            let chars = 'abcdefghijklmnopqrstuvwxyz'
-                            if (genUppercase) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                            if (genNumbers)  chars += '0123456789'
-                            if (genSymbols)  chars += '!@#$%^&*()-_=+[]{}|;:,.?'
-                            const buf = new Uint32Array(genLength)
-                            crypto.getRandomValues(buf)
-                            let result = ''
-                            for (let i = 0; i < genLength; i++)
-                                result += chars[buf[i] % chars.length]
-                            return result
-                        }
-
                         function clearForm() {
                             addEntryName.text = ""
                             addUsername.text = ""
@@ -436,10 +430,7 @@ Scope {
 
                             DialogButton {
                                 buttonText: Translation.tr("Generate")
-                                onClicked: {
-                                    addPassword.text = addPanel.generatePassword()
-                                    addPanel.addPasswordVisible = true
-                                }
+                                onClicked: KeePass.generate(addPanel.genLength, addPanel.genUppercase, addPanel.genNumbers, addPanel.genSymbols)
                             }
                         }
 

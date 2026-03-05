@@ -211,6 +211,16 @@ cmd_add() {
   printf '%s\n%s\n' "$db_password" "$entry_password" | keepassxc-cli "${args[@]}"
 }
 
+cmd_generate() {
+  local length="${KP_GEN_LENGTH:-20}"
+  local chars='abcdefghijklmnopqrstuvwxyz'
+  [[ "${KP_GEN_UPPER:-1}"   == "1" ]] && chars+='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  [[ "${KP_GEN_NUMBERS:-1}" == "1" ]] && chars+='0123456789'
+  [[ "${KP_GEN_SYMBOLS:-1}" == "1" ]] && chars+='!@#$%^&*()_=+[]{}|;:,.?-'
+  LC_ALL=C tr -dc "$chars" < /dev/urandom | head -c "$length"
+  printf '\n'
+}
+
 cmd_help() {
   cat <<'EOF'
 quickshell-keepass
@@ -254,6 +264,7 @@ main() {
     clip) cmd_clip "$@" ;;
     copy-private) cmd_copy_private "$@" ;;
     add) cmd_add "$@" ;;
+    generate) cmd_generate ;;
     help|-h|--help) cmd_help ;;
     *) die "unknown command: $cmd" ;;
   esac

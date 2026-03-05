@@ -79,7 +79,19 @@ Scope {
                             addEntryName.forceActiveFocus();
                             return;
                         }
-                        filterField.forceActiveFocus();
+                        focusTimer.restart();
+                    }
+
+                    Timer {
+                        id: focusTimer
+                        interval: 50
+                        repeat: false
+                        onTriggered: {
+                            if (!KeePass.open) return
+                            if (!KeePass.unlocked) { unlockPassword.forceActiveFocus(); return }
+                            if (KeePass.addMode) { addEntryName.forceActiveFocus(); return }
+                            filterField.forceActiveFocus()
+                        }
                     }
 
                     Connections {
@@ -248,10 +260,11 @@ Scope {
                             clip: true
                             spacing: 2
                             model: KeePass.filteredEntries(KeePass.filter)
-                            focus: true
                             currentIndex: 0
+                            keyNavigationEnabled: false
                             highlightFollowsCurrentItem: true
                             highlightMoveDuration: 80
+                            Keys.priority: Keys.BeforeItem
                             highlight: Rectangle {
                                 radius: Appearance.rounding.normal
                                 color: Appearance.colors.colLayer3Hover
@@ -260,6 +273,8 @@ Scope {
                                 required property var modelData
                                 Layout.fillWidth: true
                                 active: ListView.isCurrentItem
+                                focus: false
+                                activeFocusOnTab: false
                                 contentItem: StyledText {
                                     text: modelData
                                     font.pixelSize: Appearance.font.pixelSize.small
@@ -268,6 +283,7 @@ Scope {
                                 }
                                 onClicked: {
                                     KeePass.openEntry(modelData)
+                                    entryList.forceActiveFocus()
                                 }
                             }
                             Keys.onPressed: event => {

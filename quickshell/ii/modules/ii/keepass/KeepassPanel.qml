@@ -372,9 +372,11 @@ Scope {
                             if (genUppercase) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                             if (genNumbers)  chars += '0123456789'
                             if (genSymbols)  chars += '!@#$%^&*()-_=+[]{}|;:,.?'
+                            const buf = new Uint32Array(genLength)
+                            crypto.getRandomValues(buf)
                             let result = ''
                             for (let i = 0; i < genLength; i++)
-                                result += chars[Math.floor(Math.random() * chars.length)]
+                                result += chars[buf[i] % chars.length]
                             return result
                         }
 

@@ -272,25 +272,38 @@ cmd_generate_words() {
     fi
   done
 
-  # Dopo ogni parola: casualmente un numero o un simbolo
+  # Dopo ogni parola: numero o simbolo — garantisce almeno uno per tipo abilitato
   local symbols='!@#$%^&*.-_'
   local has_n="${KP_GEN_NUMBERS:-1}"
   local has_s="${KP_GEN_SYMBOLS:-1}"
 
+  # Costruisce array di tipi separatori: almeno uno per tipo, resto casuale, poi shuffle
+  local -a sep_types=()
+  if [[ "$has_n" == "1" && "$has_s" == "1" ]]; then
+    sep_types+=("n" "s")
+    for ((i=2; i<word_count; i++)); do
+      if (( $(_kp_rand_u8) % 2 )); then sep_types+=("n"); else sep_types+=("s"); fi
+    done
+    # Fisher-Yates shuffle
+    for ((i=${#sep_types[@]}-1; i>0; i--)); do
+      local j=$(( $(_kp_rand_u8) % (i+1) ))
+      local tmp="${sep_types[$i]}"
+      sep_types[$i]="${sep_types[$j]}"
+      sep_types[$j]="$tmp"
+    done
+  elif [[ "$has_n" == "1" ]]; then
+    for ((i=0; i<word_count; i++)); do sep_types+=("n"); done
+  elif [[ "$has_s" == "1" ]]; then
+    for ((i=0; i<word_count; i++)); do sep_types+=("s"); done
+  fi
+
   local result=""
   for ((i=0; i<word_count; i++)); do
     result+="${styled[$i]}"
-    if [[ "$has_n" == "1" && "$has_s" == "1" ]]; then
-      if (( $(_kp_rand_u8) % 2 )); then
-        result+=$(( ($(_kp_rand_u8) % 99) + 1 ))
-      else
-        result+="${symbols:$(( $(_kp_rand_u8) % ${#symbols} )):1}"
-      fi
-    elif [[ "$has_n" == "1" ]]; then
-      result+=$(( ($(_kp_rand_u8) % 99) + 1 ))
-    elif [[ "$has_s" == "1" ]]; then
-      result+="${symbols:$(( $(_kp_rand_u8) % ${#symbols} )):1}"
-    fi
+    case "${sep_types[$i]:-}" in
+      n) result+=$(( ($(_kp_rand_u8) % 99) + 1 )) ;;
+      s) result+="${symbols:$(( $(_kp_rand_u8) % ${#symbols} )):1}" ;;
+    esac
   done
 
   printf '%s\n' "$result"

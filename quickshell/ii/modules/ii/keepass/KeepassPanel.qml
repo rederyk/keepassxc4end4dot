@@ -72,14 +72,14 @@ Scope {
                     function focusDefault() {
                         if (!KeePass.open) return;
                         if (!KeePass.unlocked) {
-                            Qt.callLater(unlockPassword.forceActiveFocus);
+                            unlockPassword.forceActiveFocus();
                             return;
                         }
                         if (KeePass.addMode) {
-                            Qt.callLater(addEntryName.forceActiveFocus);
+                            addEntryName.forceActiveFocus();
                             return;
                         }
-                        Qt.callLater(filterField.forceActiveFocus);
+                        entryList.forceActiveFocus();
                     }
 
                     Connections {
@@ -233,15 +233,6 @@ Scope {
                             Layout.fillWidth: true
                             placeholderText: Translation.tr("Search entries")
                             onTextChanged: KeePass.filter = text
-                            KeyNavigation.tab: entryList
-                            KeyNavigation.backtab: entryList
-                            Keys.priority: Keys.BeforeItem
-                            Keys.onPressed: event => {
-                                if (event.key === Qt.Key_Down || event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                    entryList.forceActiveFocus()
-                                    event.accepted = true
-                                }
-                            }
                         }
 
                         ListView {
@@ -251,11 +242,12 @@ Scope {
                             clip: true
                             spacing: 2
                             model: KeePass.filteredEntries(KeePass.filter)
+                            focus: true
+                            KeyNavigation.tab: showButton
+                            KeyNavigation.backtab: copyButton
                             currentIndex: 0
-                            keyNavigationEnabled: false
                             highlightFollowsCurrentItem: true
                             highlightMoveDuration: 80
-                            Keys.priority: Keys.BeforeItem
                             highlight: Rectangle {
                                 radius: Appearance.rounding.normal
                                 color: Appearance.colors.colLayer3Hover
@@ -264,8 +256,6 @@ Scope {
                                 required property var modelData
                                 Layout.fillWidth: true
                                 active: ListView.isCurrentItem
-                                focus: false
-                                activeFocusOnTab: false
                                 contentItem: StyledText {
                                     text: modelData
                                     font.pixelSize: Appearance.font.pixelSize.small
@@ -274,7 +264,6 @@ Scope {
                                 }
                                 onClicked: {
                                     KeePass.openEntry(modelData)
-                                    entryList.forceActiveFocus()
                                 }
                             }
                             Keys.onPressed: event => {
@@ -282,33 +271,16 @@ Scope {
                                     entryList.currentIndex = Math.min(entryList.count - 1, entryList.currentIndex + 1)
                                     event.accepted = true
                                 } else if (event.key === Qt.Key_Up) {
-                                    if (entryList.currentIndex === 0) {
-                                        filterField.forceActiveFocus()
-                                    } else {
-                                        entryList.currentIndex = entryList.currentIndex - 1
-                                    }
+                                    entryList.currentIndex = Math.max(0, entryList.currentIndex - 1)
                                     event.accepted = true
-                                } else if (event.key === Qt.Key_Tab) {
-                                    if (KeePass.selectedEntry.length > 0) {
-                                        showButton.forceActiveFocus()
-                                    } else {
-                                        filterField.forceActiveFocus()
-                                    }
-                                    event.accepted = true
-                                } else if (event.key === Qt.Key_Backtab) {
-                                    filterField.forceActiveFocus()
-                                    event.accepted = true
-                                } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && entryList.currentIndex >= 0) {
+                                } else
+                                if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && entryList.currentIndex >= 0) {
                                     const currentEntry = entryList.model[entryList.currentIndex]
                                     if (KeePass.selectedEntry === currentEntry) {
                                         KeePass.copyPassword()
                                     } else {
                                         KeePass.openEntry(currentEntry)
                                     }
-                                    event.accepted = true
-                                } else if (event.text.length > 0 && event.text >= ' ' && !event.modifiers) {
-                                    filterField.forceActiveFocus()
-                                    filterField.text = filterField.text + event.text
                                     event.accepted = true
                                 }
                             }
@@ -374,7 +346,7 @@ Scope {
                                     DialogButton {
                                         id: copyUsernameButton
                                         buttonText: Translation.tr("Copy Username")
-                                        KeyNavigation.tab: filterField
+                                        KeyNavigation.tab: entryList
                                         KeyNavigation.backtab: copyButton
                                         onClicked: KeePass.copyUsername()
                                     }

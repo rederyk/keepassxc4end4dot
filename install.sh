@@ -100,6 +100,12 @@ EOF
 ok "Config scritto"
 echo ""
 
+# ── Svuota cache password (vault path potrebbe essere cambiato) ───────────────
+SCRIPT_DEST="$HYPR_DIR/custom/scripts/quickshell-keepass"
+if [[ -f "$SCRIPT_DEST" ]]; then
+  "$SCRIPT_DEST" lock 2>/dev/null && info "Cache password svuotata" || true
+fi
+
 echo -e "${GREEN}${BOLD}Installazione completata!${NC}"
 echo "Segui le patch manuali stampate sopra, poi: qs reload"
 echo ""

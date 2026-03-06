@@ -8,16 +8,23 @@ HYPR="${2:-$HOME/.config/hypr}"
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Script
-cp hypr/custom/scripts/quickshell-keepass "$HYPR/custom/scripts/quickshell-keepass"
+cp "$SCRIPT_DIR/hypr/custom/scripts/quickshell-keepass" "$HYPR/custom/scripts/quickshell-keepass"
 chmod +x "$HYPR/custom/scripts/quickshell-keepass"
 
 # QML service
-cp quickshell/ii/services/KeePass.qml "$QS/services/KeePass.qml"
+cp "$SCRIPT_DIR/quickshell/ii/services/KeePass.qml" "$QS/services/KeePass.qml"
 
 # UI module
 mkdir -p "$QS/modules/ii/keepass"
-cp quickshell/ii/modules/ii/keepass/KeepassPanel.qml "$QS/modules/ii/keepass/KeepassPanel.qml"
+cp "$SCRIPT_DIR/quickshell/ii/modules/ii/keepass/KeepassPanel.qml" "$QS/modules/ii/keepass/KeepassPanel.qml"
+
+# Wordlists
+KP_CFG_DIR="${KP_CFG_DIR:-$HOME/.config/keepassqs}"
+mkdir -p "$KP_CFG_DIR/wordlists"
+cp "$SCRIPT_DIR/wordlists/"*.json "$KP_CFG_DIR/wordlists/"
 
 echo ""
 echo "=== Patch manuale richiesta ==="

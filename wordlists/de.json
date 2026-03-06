@@ -1,0 +1,21 @@
+[
+  "katze", "hund", "maus", "kaninchen", "igel", "fledermaus", "schwan", "amsel", "specht", "frosch",
+  "schnecke", "ameise", "wespe", "schmetterling", "schlange", "eidechse", "schildkroete", "fuchs", "hase", "dachs",
+  "brot", "kaese", "butter", "honig", "nudeln", "pizza", "ei", "salami", "schinken", "mozzarella",
+  "basilikum", "rosmarin", "zimt", "schokolade", "keks", "kuchen", "gelato", "kaffee", "bier", "brezel",
+  "knauf", "fliese", "balkon", "fenster", "vorhang", "lampe", "stuhl", "tisch", "kissen", "eimer",
+  "buerste", "sieb", "trichter", "kelle", "spatel", "nudelholz", "pfanne", "kessel", "backblech", "deckel",
+  "korkenzieher", "schere", "lineal", "zirkel",
+  "baum", "blume", "blatt", "ast", "stamm", "moos", "farn", "wiese", "wald", "huegel",
+  "berg", "tal", "fluss", "see", "bach", "wasserfall", "stein", "kiesel", "sand",
+  "schuh", "stiefel", "sandale", "hut", "handschuh", "guertel", "tasche", "rucksack", "regenschirm",
+  "pullover", "jacke", "hemd", "rock", "socke", "schal", "krawatte", "regenmantel",
+  "keller", "dachboden", "garage", "flur", "treppe", "buergersteig", "ampel", "gasse",
+  "laube", "terrasse", "kirchturm", "bahnhof", "markt", "bibliothek", "turnhalle",
+  "schluessel", "schloss", "griff", "bolzen", "schraube", "dachrinne", "ziegel", "mauerwerk",
+  "telefon", "tastatur", "bildschirm", "kabel", "antenne", "signal", "motor", "rad", "kurbel",
+  "zug", "bus", "fahrrad", "motorrad", "hubschrauber", "schiff", "unterseeboot", "ballon",
+  "regen", "schnee", "wind", "sonne", "mond", "stern", "wolke", "regenbogen", "blitz", "nebel",
+  "tomate", "kartoffel", "karotte", "zwiebel", "knoblauch", "paprika", "aubergine", "kuerbis",
+  "apfel", "birne", "orange", "zitrone", "traube", "erdbeere", "kirsche", "pfirsich", "banane", "granatapfel"
+]

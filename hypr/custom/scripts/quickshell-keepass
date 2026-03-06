@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+KP_CONFIG="${KP_CONFIG:-$HOME/.config/keepassqs/config}"
+[[ -f "$KP_CONFIG" ]] && source "$KP_CONFIG"
+
 VAULT_PATH="${KP_VAULT_PATH:-$HOME/Nextcloud/secrets/end4dot-keepass.kdbx}"
 CACHE_TTL="${KP_CACHE_TTL:-300}"
 NONINTERACTIVE="${KP_NONINTERACTIVE:-0}"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+KP_GEN_LANG="${KP_GEN_LANG:-it}"
+KP_WORDLIST_DIR="${KP_WORDLIST_DIR:-$HOME/.config/keepassqs/wordlists}"
 CACHE_FILE="$RUNTIME_DIR/quickshell-keepass.pass"
 STAMP_FILE="$RUNTIME_DIR/quickshell-keepass.stamp"
 
@@ -242,12 +247,21 @@ _kp_rand_u8() {
 }
 
 cmd_generate_words() {
+  # Carica wordlist da file JSON (richiede jq) o usa fallback IT embedded
+  local -a _KP_WORDS
+  local _wfile="$KP_WORDLIST_DIR/${KP_GEN_LANG}.json"
+  if command -v jq >/dev/null 2>&1 && [[ -f "$_wfile" ]]; then
+    mapfile -t _KP_WORDS < <(jq -r '.[]' "$_wfile")
+  else
+    _KP_WORDS=("${_KP_WORDS_IT[@]}")
+  fi
+
   local length="${KP_GEN_LENGTH:-20}"
   local word_count=3
   (( length <= 8 ))  && word_count=2
   (( length >= 20 )) && word_count=4
 
-  local pool_size=${#_KP_WORDS_IT[@]}
+  local pool_size=${#_KP_WORDS[@]}
 
   # Pick unique words
   local -a chosen=()
@@ -259,7 +273,7 @@ cmd_generate_words() {
     for u in "${used[@]:-}"; do [[ "$u" == "$idx" ]] && dup=1 && break; done
     (( dup )) && continue
     used+=("$idx")
-    chosen+=("${_KP_WORDS_IT[$idx]}")
+    chosen+=("${_KP_WORDS[$idx]}")
   done
 
   # Ogni parola: se uppercase abilitato, almeno una maiuscola e una minuscola; poi shuffle

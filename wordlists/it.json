@@ -1,0 +1,21 @@
+[
+  "gatto", "cane", "topo", "coniglio", "riccio", "pipistrello", "cigno", "merlo", "picchio", "rana",
+  "lumaca", "formica", "vespa", "farfalla", "serpente", "lucertola", "tartaruga", "volpe", "lepre",
+  "pane", "formaggio", "burro", "miele", "pasta", "pizza", "uovo", "salame", "prosciutto", "mozzarella",
+  "basilico", "rosmarino", "cannella", "cioccolata", "biscotto", "torta", "gelato", "caffè", "birra",
+  "pomello", "piastrella", "balcone", "finestra", "tenda", "lampada", "sedia", "tavolo", "cuscino",
+  "secchio", "spazzola", "setaccio", "imbuto", "colapasta", "mestolo", "spatola", "mattarello",
+  "teglia", "pentola", "padella", "coperchio", "cavatappi", "forbici", "righello", "compasso",
+  "albero", "fiore", "foglia", "ramo", "tronco", "muschio", "felce", "prato", "bosco", "collina",
+  "montagna", "valle", "fiume", "lago", "ruscello", "cascata", "roccia", "ciottolo", "sabbia",
+  "scarpa", "stivale", "sandalo", "cappello", "guanto", "cintura", "borsa", "zaino", "ombrello",
+  "maglione", "giacca", "camicia", "gonna", "calzino", "sciarpa", "cravatta", "impermeabile",
+  "cantina", "soffitta", "garage", "corridoio", "scalinata", "marciapiede", "semaforo", "vicolo",
+  "portico", "terrazza", "campanile", "stazione", "mercato", "biblioteca", "palestra",
+  "chiave", "lucchetto", "maniglia", "bullone", "vite", "grondaia", "tegola", "mattone",
+  "telefono", "tastiera", "schermo", "cavo", "antenna", "segnale", "motore", "ruota", "pedivella",
+  "treno", "autobus", "bicicletta", "moto", "elicottero", "nave", "sottomarino", "mongolfiera",
+  "pioggia", "neve", "vento", "sole", "luna", "stella", "nuvola", "arcobaleno", "fulmine", "nebbia",
+  "pomodoro", "patata", "carota", "cipolla", "aglio", "peperone", "melanzana", "zucca",
+  "mela", "pera", "arancia", "limone", "uva", "fragola", "ciliegia", "pesca", "banana", "melograno"
+]

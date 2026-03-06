@@ -1,21 +1,16 @@
 #!/usr/bin/env bash
-# KeePass QuickShell — interactive installer
+# KeePass QuickShell — installer
+# Edita config.json, poi esegui: ./install.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Il kitty keyboard protocol manda sequenze escape invece di \n per Invio
-# e blocca anche Ctrl+C. Lo disabilitiamo per tutta la durata dello script.
-printf '\e[>0u'
-trap 'printf "\e[<u"' EXIT
+CONFIG="$SCRIPT_DIR/config.json"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
-
-info()  { echo -e "${BLUE}→${NC} $*"; }
-ok()    { echo -e "${GREEN}✓${NC} $*"; }
-warn()  { echo -e "${YELLOW}!${NC} $*"; }
-err()   { echo -e "${RED}✗${NC} $*"; exit 1; }
-ask()   { echo -e "${BOLD}$*${NC}"; }
+info() { echo -e "${BLUE}→${NC} $*"; }
+ok()   { echo -e "${GREEN}✓${NC} $*"; }
+warn() { echo -e "${YELLOW}!${NC} $*"; }
+err()  { echo -e "${RED}✗${NC} $*" >&2; exit 1; }
 
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════════╗${NC}"
@@ -23,126 +18,88 @@ echo -e "${BOLD}║   KeePass QuickShell — Installer         ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════╝${NC}"
 echo ""
 
-# ── Dependency check ─────────────────────────────────────────────────────────
-info "Checking dependencies..."
-missing_hard=()
+# ── Legge config.json ─────────────────────────────────────────────────────────
+[[ -f "$CONFIG" ]] || err "config.json non trovato in $SCRIPT_DIR"
 
-check_hard() {
-  if command -v "$1" >/dev/null 2>&1; then
-    ok "$1"
-  else
-    echo -e "  ${RED}✗${NC} $1  (install: $2)"
-    missing_hard+=("$1")
-  fi
-}
+expand() { echo "${1/#\~/$HOME}"; }
 
-check_soft() {
-  if command -v "$1" >/dev/null 2>&1; then
-    ok "$1"
-  else
-    warn "$1 not found — optional ($2)"
-  fi
-}
+QS_DIR=$(expand     "$(jq -r '.qs_dir      // "~/.config/quickshell/ii"'                    "$CONFIG")")
+HYPR_DIR=$(expand   "$(jq -r '.hypr_dir    // "~/.config/hypr"'                             "$CONFIG")")
+VAULT_PATH=$(expand "$(jq -r '.vault_path  // "~/Nextcloud/secrets/end4dot-keepass.kdbx"'   "$CONFIG")")
+GEN_LANG=$(         jq -r  '.gen_lang    // "it"'                                            "$CONFIG")
+CREATE_VAULT=$(     jq -r  '.create_vault // false'                                          "$CONFIG")
 
-check_hard keepassxc-cli "keepassxc"
-check_hard wl-copy       "wl-clipboard"
-check_hard wl-paste      "wl-clipboard"
-check_hard qs            "quickshell"
-check_soft jq            "needed for multilang wordlists; falls back to Italian"
-check_soft cliphist      "clipboard history cleanup"
-
-if (( ${#missing_hard[@]} > 0 )); then
-  echo ""
-  err "Missing required packages: ${missing_hard[*]}"
-fi
+info "Configurazione:"
+echo "  qs_dir:       $QS_DIR"
+echo "  hypr_dir:     $HYPR_DIR"
+echo "  vault_path:   $VAULT_PATH"
+echo "  gen_lang:     $GEN_LANG"
+echo "  create_vault: $CREATE_VAULT"
 echo ""
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
-ask "QuickShell ii config dir [$HOME/.config/quickshell/ii]:"
-read -r QS_DIR
-QS_DIR="${QS_DIR:-$HOME/.config/quickshell/ii}"
-QS_DIR="${QS_DIR/#\~/$HOME}"
+# ── Dipendenze ────────────────────────────────────────────────────────────────
+info "Controllo dipendenze..."
+missing=()
+chk()  { command -v "$1" >/dev/null 2>&1 && ok "$1" || { echo -e "  ${RED}✗${NC} $1  (pacchetto: $2)"; missing+=("$1"); }; }
+chks() { command -v "$1" >/dev/null 2>&1 && ok "$1" || warn "$1 non trovato — opzionale ($2)"; }
 
-ask "Hyprland config dir [$HOME/.config/hypr]:"
-read -r HYPR_DIR
-HYPR_DIR="${HYPR_DIR:-$HOME/.config/hypr}"
-HYPR_DIR="${HYPR_DIR/#\~/$HOME}"
+chk  keepassxc-cli "keepassxc"
+chk  wl-copy       "wl-clipboard"
+chk  wl-paste      "wl-clipboard"
+chk  jq            "jq"
+chk  qs            "quickshell"
+chks cliphist      "pulizia clipboard history"
 
-[[ -d "$QS_DIR" ]]   || err "QuickShell config dir not found: $QS_DIR"
-[[ -d "$HYPR_DIR" ]] || err "Hyprland config dir not found: $HYPR_DIR"
+(( ${#missing[@]} == 0 )) || err "Dipendenze mancanti: ${missing[*]}"
 echo ""
 
-# ── Wordlist language ─────────────────────────────────────────────────────────
-ask "Wordlist language for password generator:"
-echo "  1) Italiano  (it)"
-echo "  2) English   (en)"
-echo "  3) Deutsch   (de)"
-read -r -p "Choice [1]: " lang_choice
-case "${lang_choice:-1}" in
-  1|it) GEN_LANG="it" ;;
-  2|en) GEN_LANG="en" ;;
-  3|de) GEN_LANG="de" ;;
-  *)    GEN_LANG="it"; warn "Unknown choice, defaulting to Italiano" ;;
-esac
-ok "Language: $GEN_LANG"
-echo ""
+# ── Verifica directory ────────────────────────────────────────────────────────
+[[ -d "$QS_DIR" ]]   || err "qs_dir non trovata: $QS_DIR"
+[[ -d "$HYPR_DIR" ]] || err "hypr_dir non trovata: $HYPR_DIR"
 
-# ── Vault path ────────────────────────────────────────────────────────────────
-DEFAULT_VAULT="$HOME/Nextcloud/secrets/end4dot-keepass.kdbx"
-ask "KeePass vault path [$DEFAULT_VAULT]:"
-read -r VAULT_PATH
-VAULT_PATH="${VAULT_PATH:-$DEFAULT_VAULT}"
-VAULT_PATH="${VAULT_PATH/#\~/$HOME}"
-
+# ── Vault ─────────────────────────────────────────────────────────────────────
 if [[ -f "$VAULT_PATH" ]]; then
-  ok "Vault found: $VAULT_PATH"
+  ok "Vault trovato: $VAULT_PATH"
+elif [[ "$CREATE_VAULT" == "true" ]]; then
+  info "Creazione vault: $VAULT_PATH"
+  mkdir -p "$(dirname "$VAULT_PATH")"
+  # Unico prompt necessario: la master password non può stare in config.json
+  printf '\e[>0u'; trap 'printf "\e[<u"' EXIT
+  read -r -s -p "  Master password: "  db_pass;  echo
+  read -r -s -p "  Conferma:        "  db_pass2; echo
+  [[ "$db_pass" == "$db_pass2" ]] || err "Le password non corrispondono"
+  printf '%s\n%s\n' "$db_pass" "$db_pass" | keepassxc-cli db-create -q -p "$VAULT_PATH"
+  ok "Vault creato"
 else
-  warn "Vault not found at: $VAULT_PATH"
-  read -r -p "Create a new vault here? [y/N]: " create_vault
-  if [[ "${create_vault,,}" == "y" ]]; then
-    mkdir -p "$(dirname "$VAULT_PATH")"
-    echo ""
-    info "Creating new vault..."
-    read -r -s -p "  Master password: " db_pass;  echo
-    read -r -s -p "  Confirm:         " db_pass2; echo
-    [[ "$db_pass" == "$db_pass2" ]] || err "Passwords do not match"
-    printf '%s\n%s\n' "$db_pass" "$db_pass" | keepassxc-cli db-create -q -p "$VAULT_PATH"
-    ok "Vault created: $VAULT_PATH"
-  else
-    warn "Skipping. Create manually later: keepassxc-cli db-create -p \"$VAULT_PATH\""
-  fi
+  warn "Vault non trovato: $VAULT_PATH"
+  warn "Imposta \"create_vault\": true in config.json per crearlo, oppure crealo manualmente."
 fi
 echo ""
 
-# ── Copy files ────────────────────────────────────────────────────────────────
-info "Copying files..."
+# ── Copia file ────────────────────────────────────────────────────────────────
+info "Copia file..."
 bash "$SCRIPT_DIR/apply.sh" "$QS_DIR" "$HYPR_DIR"
-echo ""
 
 # ── Patch vaultPath in KeePass.qml ───────────────────────────────────────────
-QML_FILE="$QS_DIR/services/KeePass.qml"
-if [[ -f "$QML_FILE" ]]; then
-  info "Patching vault path in KeePass.qml..."
-  sed -i "s|property string vaultPath:.*|property string vaultPath: FileUtils.trimFileProtocol(\"$VAULT_PATH\")|" "$QML_FILE"
+QML="$QS_DIR/services/KeePass.qml"
+if [[ -f "$QML" ]]; then
+  info "Patch vault path in KeePass.qml..."
+  sed -i "s|property string vaultPath:.*|property string vaultPath: FileUtils.trimFileProtocol(\"$VAULT_PATH\")|" "$QML"
   ok "vaultPath → $VAULT_PATH"
 fi
 
-# ── Write keepassqs config ────────────────────────────────────────────────────
-KP_CFG_DIR="$HOME/.config/keepassqs"
-mkdir -p "$KP_CFG_DIR"
-info "Writing config: $KP_CFG_DIR/config"
-cat > "$KP_CFG_DIR/config" <<EOF
-# keepassqs configuration — generated by install.sh
+# ── Scrive ~/.config/keepassqs/config ────────────────────────────────────────
+KP_CFG="$HOME/.config/keepassqs"
+mkdir -p "$KP_CFG"
+info "Scrittura $KP_CFG/config..."
+cat > "$KP_CFG/config" <<EOF
 KP_VAULT_PATH="\${KP_VAULT_PATH:-$VAULT_PATH}"
 KP_GEN_LANG="\${KP_GEN_LANG:-$GEN_LANG}"
-KP_WORDLIST_DIR="\${KP_WORDLIST_DIR:-$KP_CFG_DIR/wordlists}"
+KP_WORDLIST_DIR="\${KP_WORDLIST_DIR:-$KP_CFG/wordlists}"
 EOF
-ok "Config written"
+ok "Config scritto"
 echo ""
 
-# ── Summary ───────────────────────────────────────────────────────────────────
-echo -e "${GREEN}${BOLD}Installation complete!${NC}"
-echo ""
-echo "Manual patches still required — see the output above or README.md"
-echo "Then reload: qs ipc call -c ii ..."
+echo -e "${GREEN}${BOLD}Installazione completata!${NC}"
+echo "Segui le patch manuali stampate sopra, poi: qs reload"
 echo ""

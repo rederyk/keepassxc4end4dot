@@ -1,7 +1,7 @@
 {
   "qs_dir":      "~/.config/quickshell/ii",
   "hypr_dir":    "~/.config/hypr",
-  "vault_path":  "~/Nextcloud/secrets/end4dot-keepass.kdbx",
-  "gen_lang":    "it",
+  "vault_path":  "~/.secrets/end4dot-keepass.kdbx",
+  "gen_lang":    "en",
   "create_vault": false
 }

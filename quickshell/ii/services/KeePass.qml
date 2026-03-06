@@ -200,6 +200,7 @@ Singleton {
                 entries = listProc.buffer
                 unlocked = true
                 lastError = ""
+                root.password = ""  // cache scritta, non serve tenerla in memoria
             } else {
                 entries = []
                 unlocked = false

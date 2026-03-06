@@ -262,13 +262,30 @@ cmd_generate_words() {
     chosen+=("${_KP_WORDS_IT[$idx]}")
   done
 
-  # Ogni parola: casualmente tutta maiuscola o tutta minuscola
+  # Ogni parola: se uppercase abilitato, almeno una maiuscola e una minuscola; poi shuffle
+  local has_upper="${KP_GEN_UPPER:-1}"
+  local -a case_types=()
+  if [[ "$has_upper" == "1" ]]; then
+    case_types+=("u" "l")
+    for ((i=2; i<word_count; i++)); do
+      if (( $(_kp_rand_u8) % 2 )); then case_types+=("u"); else case_types+=("l"); fi
+    done
+    # Fisher-Yates shuffle
+    for ((i=${#case_types[@]}-1; i>0; i--)); do
+      local j=$(( $(_kp_rand_u8) % (i+1) ))
+      local tmp="${case_types[$i]}"
+      case_types[$i]="${case_types[$j]}"
+      case_types[$j]="$tmp"
+    done
+  else
+    for ((i=0; i<word_count; i++)); do case_types+=("l"); done
+  fi
   local -a styled=()
-  for word in "${chosen[@]}"; do
-    if (( $(_kp_rand_u8) % 2 )); then
-      styled+=("${word^^}")
+  for ((i=0; i<word_count; i++)); do
+    if [[ "${case_types[$i]}" == "u" ]]; then
+      styled+=("${chosen[$i]^^}")
     else
-      styled+=("$word")
+      styled+=("${chosen[$i]}")
     fi
   done
 
